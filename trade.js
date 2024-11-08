@@ -36,26 +36,34 @@ async function placeTrade(token, tradeParams) {
 
 module.exports = async (req, res) => {
     if (req.method === "POST") {
-        const token = process.env.DERIV_API_TOKEN;
-        
-        // Authenticate with Deriv API
-        const auth = await authorize(token);
-        if (auth.error) {
-            return res.status(401).json({ error: "Authorization failed", message: auth.error.message });
+        try {
+            const token = process.env.DERIV_API_TOKEN;
+            
+            // Authorize with Deriv API
+            const auth = await authorize(token);
+            if (auth.error) {
+                console.error("Authorization error:", auth.error);
+                return res.status(401).json({ error: "Authorization failed", message: auth.error.message });
+            }
+
+            // Get trade parameters from request
+            const { symbol, amount, contractType, duration, durationUnit, barrier } = req.body;
+
+            // Place a trade
+            const tradeResult = await placeTrade(token, { symbol, amount, contractType, duration, durationUnit, barrier });
+            
+            if (tradeResult.error) {
+                console.error("Trade error:", tradeResult.error);
+                return res.status(500).json({ error: "Trade failed", message: tradeResult.error.message });
+            }
+
+            // Send successful trade ID
+            return res.status(200).json({ message: "Trade successful", tradeId: tradeResult.buy.contract_id });
+
+        } catch (error) {
+            console.error("Server error:", error);
+            res.status(500).json({ error: "Server error", message: error.message });
         }
-
-        // Get trade parameters from the request body
-        const { symbol, amount, contractType, duration, durationUnit, barrier } = req.body;
-
-        // Place a trade
-        const tradeResult = await placeTrade(token, { symbol, amount, contractType, duration, durationUnit, barrier });
-        
-        if (tradeResult.error) {
-            return res.status(500).json({ error: "Trade failed", message: tradeResult.error.message });
-        }
-
-        // Send back the trade ID if successful
-        res.status(200).json({ message: "Trade successful", tradeId: tradeResult.buy.contract_id });
     } else {
         res.status(405).json({ error: "Method not allowed" });
     }
