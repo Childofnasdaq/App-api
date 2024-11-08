@@ -1,0 +1,403 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Child of Nasdaq</title>
+
+    <!-- Font Awesome CDN -->
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            font-family: 'Arial', sans-serif;
+            background-color: #1a2b48;
+            color: white;
+            display: flex;
+            flex-direction: column;
+            min-height: 100vh;
+        }
+
+        .container {
+            flex-grow: 1;
+            padding: 20px;
+            max-width: 600px;
+            margin: 0 auto;
+        }
+
+        h1, h2 {
+            text-align: center;
+            margin: 10px 0;
+        }
+
+        .bot-info {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            margin-top: 20px;
+        }
+
+        .bot-info img {
+            width: 100%;
+            max-width: 300px;
+            border-radius: 8px;
+            margin-bottom: 15px;
+        }
+
+        .log-section {
+            background-color: #2a3c5b;
+            border-radius: 8px;
+            padding: 15px;
+            margin-top: 15px;
+            position: relative;
+        }
+
+        .log-section ul {
+            list-style: none;
+            padding: 0;
+            max-height: 150px;
+            overflow-y: auto;
+            margin-right: 30px; /* Space for the active dot */
+        }
+
+        .log-section ul li {
+            font-family: monospace;
+            color: #00ff00;
+        }
+
+        .robot-active {
+            position: absolute;
+            top: 10px;
+            left: 10px;
+            width: 10px;
+            height: 10px;
+            background-color: #00ff00;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+
+        @keyframes pulse {
+            0% { transform: scale(1); }
+            50% { transform: scale(1.5); }
+            100% { transform: scale(1); }
+        }
+
+        .action-buttons {
+            display: flex;
+            justify-content: space-around;
+            margin-top: 20px;
+        }
+
+        .action-buttons button {
+            width: 45%;
+            padding: 10px;
+            font-size: 16px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+        }
+
+        .btn-trade {
+            background-color: #007bff;
+            color: white;
+        }
+
+        .btn-settings {
+            background-color: white;
+            color: black;
+        }
+
+        .btn-connect {
+            background-color: #007bff; /* Connect button blue */
+            color: white;
+            width: 100%; /* Full width */
+            padding: 10px; /* Match the size with other buttons */
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+        }
+
+        .nav-bar {
+            display: flex;
+            justify-content: space-around;
+            background-color: #1c2e4a;
+            padding: 10px 0;
+            position: fixed;
+            bottom: 0;
+            width: 100%;
+        }
+
+        .nav-bar button {
+            background: none;
+            border: none;
+            color: white;
+            cursor: pointer;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+        }
+
+        .nav-bar button i {
+            font-size: 24px;
+            margin-bottom: 5px;
+        }
+
+        .nav-bar button:hover {
+            text-decoration: underline;
+        }
+
+        .form-group {
+            display: flex;
+            align-items: center;
+            margin-bottom: 15px;
+        }
+
+        .form-group input {
+            width: 100%;
+            padding: 10px;
+            font-size: 16px;
+            margin-left: 10px;
+            border-radius: 5px;
+            border: none;
+        }
+
+        .form-group i {
+            color: #007bff;
+            font-size: 20px;
+        }
+
+        .hidden-upload {
+            display: none;
+        }
+
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Authentication Screen -->
+    <div class="container" id="authenticationScreen">
+        <h2>Authentication</h2>
+        <form id="authForm" onsubmit="authenticateUser(event)">
+            <div class="form-group">
+                <i class="fas fa-user-circle"></i>
+                <input type="text" id="mentorId" placeholder="Mentor ID" required>
+            </div>
+
+            <div class="form-group">
+                <i class="fas fa-envelope"></i>
+                <input type="email" id="email" placeholder="Email" required>
+            </div>
+
+            <div class="form-group">
+                <i class="fas fa-key"></i>
+                <input type="text" id="licenseKeyAuth" placeholder="License Key" required>
+            </div>
+
+            <button type="submit" class="btn-connect">Authenticate</button>
+        </form>
+        <p style="text-align: center; margin-top: 10px;"><a href="#" style="color: #007bff;">Need help?</a></p>
+    </div>
+
+    <!-- Home Screen -->
+    <div class="container hidden" id="homeScreen">
+        <div class="bot-info">
+            <h2>CHILD OF NASDAQ</h2>
+            <img id="botImage" src="https://via.placeholder.com/300x200" alt="Bot Image">
+            <p>C.O.N-IBOT, 24/7 OPERATION</p>
+            <button onclick="document.getElementById('fileInput').click();">Upload Icon</button>
+            <input type="file" id="fileInput" class="hidden-upload" accept="image/*" onchange="loadImage(event)">
+        </div>
+
+        <div class="log-section">
+            <div class="robot-active"></div>
+            <h3>Bot Logs</h3>
+            <ul id="logList"></ul>
+        </div>
+
+        <div class="action-buttons">
+            <button class="btn-trade" id="tradeButton" onclick="toggleTrade()">Start Trading</button>
+            <button class="btn-settings" onclick="navigateTo('settingsScreen')">Settings</button>
+        </div>
+    </div>
+
+    <!-- Connect Screen -->
+    <div class="container hidden" id="connectScreen">
+        <h2>Connect MT4/MT5 Account</h2>
+        <form id="connectForm" onsubmit="connectToAccount(event)">
+            <div class="form-group">
+                <i class="fas fa-user"></i>
+                <input type="text" id="login" placeholder="Login ID" required>
+            </div>
+
+            <div class="form-group">
+                <i class="fas fa-lock"></i>
+                <input type="password" id="password" placeholder="Password" required>
+            </div>
+
+            <div class="form-group">
+                <i class="fas fa-server"></i>
+                <input type="text" id="server" placeholder="MT5/MT4 Server" required>
+            </div>
+
+            <div class="form-group">
+                <i class="fas fa-key"></i>
+                <input type="text" id="licenseKey" placeholder="License Key" required>
+            </div>
+
+            <button type="submit" class="btn-connect">Connect</button>
+        </form>
+        <p style="text-align: center; margin-top: 10px;"><a href="#" style="color: #007bff;">Need help?</a></p>
+    </div>
+
+    <!-- Settings Screen -->
+    <div class="container hidden" id="settingsScreen">
+        <h2>Risk Management Settings</h2>
+        <label>Max Risk Per Trade (%):</label>
+        <input type="number" id="riskPerTrade" placeholder="Enter max risk percentage"><br><br>
+
+        <label>Stop Loss (%):</label>
+        <input type="number" id="stopLoss" placeholder="Enter stop loss percentage"><br><br>
+
+        <label>Take Profit Multiplier:</label>
+        <input type="number" id="takeProfitMultiplier" placeholder="Enter TP multiplier"><br><br>
+
+        <label>Trade Size (Lots):</label>
+        <input type="number" id="tradeSize" placeholder="Enter trade size"><br><br>
+
+        <label>Copy All Trades</label>
+        <input type="checkbox" id="copyAllTrades"><br><br>
+
+        <label>Enable Notifications</label>
+        <input type="checkbox" id="enableNotifications"><br><br>
+
+        <button onclick="saveSettings()">Save Settings</button>
+    </div>
+
+    <div class="nav-bar">
+        <button onclick="navigateTo('homeScreen')">
+            <i class="fas fa-home"></i>
+            Home
+        </button>
+        <button onclick="navigateTo('connectScreen')">
+            <i class="fas fa-plug"></i>
+            Connect
+        </button>
+        <button onclick="navigateTo('settingsScreen')">
+            <i class="fas fa-cogs"></i>
+            Settings
+        </button>
+    </div>
+
+    <script>
+        let tradingInterval; // Variable to store the trading interval
+        const totalTrades = 6; // Number of trades to open
+        let tradesOpened = 0; // Counter for opened trades
+
+        async function placeTrade() {
+            try {
+                const response = await fetch('/api/trade', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({
+                        symbol: "R_50",
+                        amount: 10,
+                        contractType: "CALL",
+                        duration: 5,
+                        durationUnit: "m",
+                        barrier: "+0.1"
+                    })
+                });
+
+                const result = await response.json();
+                if (result.error) {
+                    addLog(`Error: ${result.message}`);
+                } else {
+                    addLog(`Trade Successful: ID ${result.tradeId}`);
+                }
+            } catch (error) {
+                addLog(`Request failed: ${error.message}`);
+            }
+        }
+
+        function toggleTrade() {
+            const tradeButton = document.getElementById('tradeButton');
+            if (tradeButton.innerText === "Start Trading") {
+                tradeButton.innerText = "Stop Trading";
+                addLog("Starting automated trading...");
+                startAutomatedTrading();
+            } else {
+                tradeButton.innerText = "Start Trading";
+                clearInterval(tradingInterval);
+                addLog("Automated trading stopped.");
+            }
+        }
+
+        function startAutomatedTrading() {
+            tradingInterval = setInterval(() => {
+                if (tradesOpened < totalTrades) {
+                    placeTrade();
+                    tradesOpened++;
+                } else {
+                    clearInterval(tradingInterval);
+                    addLog("Max trades reached. Stopping auto-trade.");
+                }
+            }, 6000); // 6 seconds interval
+        }
+
+        function addLog(message) {
+            const logList = document.getElementById('logList');
+            const newLog = document.createElement('li');
+            newLog.textContent = message;
+            logList.appendChild(newLog);
+        }
+
+        function navigateTo(screen) {
+            document.getElementById('authenticationScreen').classList.add('hidden');
+            document.getElementById('homeScreen').classList.add('hidden');
+            document.getElementById('connectScreen').classList.add('hidden');
+            document.getElementById('settingsScreen').classList.add('hidden');
+            document.getElementById(screen).classList.remove('hidden');
+        }
+
+        function authenticateUser(event) {
+            event.preventDefault();
+            let mentorId = document.getElementById('mentorId').value;
+            let email = document.getElementById('email').value;
+            let licenseKey = document.getElementById('licenseKeyAuth').value;
+
+            if (mentorId === "5880" && email === "childofnasdaqservices@gmail.com" && licenseKey === "12qw-34er-56ty-78ui") {
+                navigateTo('homeScreen');
+            } else {
+                alert('Invalid credentials');
+            }
+        }
+
+        function saveSettings() {
+            let risk = document.getElementById('riskPerTrade').value;
+            let stopLoss = document.getElementById('stopLoss').value;
+            let tpMultiplier = document.getElementById('takeProfitMultiplier').value;
+            let tradeSize = document.getElementById('tradeSize').value;
+            let copyTrades = document.getElementById('copyAllTrades').checked;
+            let enableNotifications = document.getElementById('enableNotifications').checked;
+
+            alert('Settings saved!');
+            navigateTo('homeScreen');
+        }
+
+        function loadImage(event) {
+            const file = event.target.files[0];
+            const reader = new FileReader();
+            reader.onload = function() {
+                document.getElementById('botImage').src = reader.result;
+            };
+            reader.readAsDataURL(file);
+        }
+    </script>
+</body>
+</html>
