@@ -62,7 +62,7 @@
             padding: 0;
             max-height: 150px;
             overflow-y: auto;
-            margin-right: 30px; /* Space for the active dot */
+            margin-right: 30px;
         }
 
         .log-section ul li {
@@ -113,10 +113,10 @@
         }
 
         .btn-connect {
-            background-color: #007bff; /* Connect button blue */
+            background-color: #007bff;
             color: white;
-            width: 100%; /* Full width */
-            padding: 10px; /* Match the size with other buttons */
+            width: 100%;
+            padding: 10px;
             border: none;
             border-radius: 5px;
             cursor: pointer;
@@ -323,7 +323,10 @@
             const apiToken = document.getElementById('apiToken').value;
 
             try {
+                addLog("Initializing Deriv API...");
                 api = new DerivAPIBasic({ app_id: 65438 });
+                
+                addLog("Attempting to authorize...");
                 const response = await api.authorize(apiToken);
                 if (response.error) {
                     throw new Error(response.error.message);
@@ -371,6 +374,10 @@
         async function startTrading() {
             while (isTrading) {
                 try {
+                    if (!await checkApiConnection()) {
+                        throw new Error("WebSocket connection is not open. Retrying...");
+                    }
+
                     addLog("Preparing to create proposal...");
                     const proposal = await api.proposal({
                         proposal: 1,
@@ -407,10 +414,47 @@
                 } catch (error) {
                     addLog('Error during trading: ' + (error.message || "Unknown error occurred"));
                     console.error('Detailed error:', error);
-                    isTrading = false;
-                    document.getElementById('tradeButton').innerText = "Start Trading";
-                    break;
+                    
+                    if (error.message.includes("WebSocket connection")) {
+                        addLog("Attempting to reconnect...");
+                        await reconnectWebSocket();
+                    } else {
+                        isTrading = false;
+                        document.getElementById('tradeButton').innerText = "Start Trading";
+                        break;
+                    }
                 }
+            }
+        }
+
+        async function checkApiConnection() {
+            try {
+                addLog("Checking API connection...");
+                const response = await api.ping();
+                if (response && response.ping === 'pong') {
+                    addLog("API connection successful");
+                    return true;
+                } else {
+                    throw new Error("Unexpected API response");
+                }
+            } catch (error) {
+                addLog("API connection failed: " + (error.message || "Unknown error"));
+                console.error("API connection error:", error);
+                return false;
+            }
+        }
+
+        async function reconnectWebSocket() {
+            addLog("Attempting to reconnect WebSocket...");
+            try {
+                await api.disconnect();
+                await new Promise(resolve => setTimeout(resolve, 1000)); // Wait for 1 second
+                await api.connect();
+                addLog("WebSocket reconnected successfully");
+                return true;
+            } catch (error) {
+                addLog("Failed to reconnect WebSocket: " + error.message);
+                return false;
             }
         }
 
@@ -452,23 +496,6 @@
         function loadImage(event) {
             const img = document.getElementById('botImage');
             img.src = URL.createObjectURL(event.target.files[0]);
-        }
-
-        async function checkApiConnection() {
-            try {
-                addLog("Checking API connection...");
-                const response = await api.ping();
-                if (response && response.ping === 'pong') {
-                    addLog("API connection successful");
-                    return true;
-                } else {
-                    throw new Error("Unexpected API response");
-                }
-            } catch (error) {
-                addLog("API connection failed: " + (error.message || "Unknown error"));
-                console.error("API connection error:", error);
-                return false;
-            }
         }
     </script>
 </body>
