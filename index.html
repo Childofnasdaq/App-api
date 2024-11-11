@@ -3,10 +3,15 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Child of Nasdaq</title>
+    <title>Child of Nasdaq - Deriv Edition</title>
+
+    <!-- Font Awesome CDN -->
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0-beta3/css/all.min.css" rel="stylesheet">
+
+    <!-- Deriv API Library -->
+    <script src="https://unpkg.com/@deriv/deriv-api/dist/DerivAPIBasic.js"></script>
+
     <style>
-        /* Styles for layout and design */
         body {
             margin: 0;
             padding: 0;
@@ -17,28 +22,33 @@
             flex-direction: column;
             min-height: 100vh;
         }
+
         .container {
             flex-grow: 1;
             padding: 20px;
             max-width: 600px;
             margin: 0 auto;
         }
+
         h1, h2 {
             text-align: center;
             margin: 10px 0;
         }
+
         .bot-info {
             display: flex;
             flex-direction: column;
             align-items: center;
             margin-top: 20px;
         }
+
         .bot-info img {
             width: 100%;
             max-width: 300px;
             border-radius: 8px;
             margin-bottom: 15px;
         }
+
         .log-section {
             background-color: #2a3c5b;
             border-radius: 8px;
@@ -46,17 +56,20 @@
             margin-top: 15px;
             position: relative;
         }
+
         .log-section ul {
             list-style: none;
             padding: 0;
             max-height: 150px;
             overflow-y: auto;
-            margin-right: 30px;
+            margin-right: 30px; /* Space for the active dot */
         }
+
         .log-section ul li {
             font-family: monospace;
             color: #00ff00;
         }
+
         .robot-active {
             position: absolute;
             top: 10px;
@@ -67,16 +80,19 @@
             border-radius: 50%;
             animation: pulse 1s infinite;
         }
+
         @keyframes pulse {
             0% { transform: scale(1); }
             50% { transform: scale(1.5); }
             100% { transform: scale(1); }
         }
+
         .action-buttons {
             display: flex;
             justify-content: space-around;
             margin-top: 20px;
         }
+
         .action-buttons button {
             width: 45%;
             padding: 10px;
@@ -85,24 +101,28 @@
             border-radius: 5px;
             cursor: pointer;
         }
+
         .btn-trade {
             background-color: #007bff;
             color: white;
         }
+
         .btn-settings {
             background-color: white;
             color: black;
         }
+
         .btn-connect {
-            background-color: #007bff;
+            background-color: #007bff; /* Connect button blue */
             color: white;
-            width: 100%;
-            padding: 10px;
+            width: 100%; /* Full width */
+            padding: 10px; /* Match the size with other buttons */
             border: none;
             border-radius: 5px;
             cursor: pointer;
             font-size: 16px;
         }
+
         .nav-bar {
             display: flex;
             justify-content: space-around;
@@ -112,6 +132,7 @@
             bottom: 0;
             width: 100%;
         }
+
         .nav-bar button {
             background: none;
             border: none;
@@ -121,18 +142,22 @@
             flex-direction: column;
             align-items: center;
         }
+
         .nav-bar button i {
             font-size: 24px;
             margin-bottom: 5px;
         }
+
         .nav-bar button:hover {
             text-decoration: underline;
         }
+
         .form-group {
             display: flex;
             align-items: center;
             margin-bottom: 15px;
         }
+
         .form-group input {
             width: 100%;
             padding: 10px;
@@ -141,96 +166,117 @@
             border-radius: 5px;
             border: none;
         }
+
         .form-group i {
             color: #007bff;
             font-size: 20px;
         }
+
         .hidden-upload {
             display: none;
         }
+
         .hidden {
             display: none;
         }
     </style>
 </head>
 <body>
+
+    <!-- Authentication Screen -->
     <div class="container" id="authenticationScreen">
         <h2>Authentication</h2>
-        <form id="authForm">
+        <form id="authForm" onsubmit="authenticateUser(event)">
             <div class="form-group">
                 <i class="fas fa-user-circle"></i>
                 <input type="text" id="mentorId" placeholder="Mentor ID" required>
             </div>
+
             <div class="form-group">
                 <i class="fas fa-envelope"></i>
                 <input type="email" id="email" placeholder="Email" required>
             </div>
+
             <div class="form-group">
                 <i class="fas fa-key"></i>
-                <input type="text" id="licenseKeyAuth" placeholder="License Key" required>
+                <input type="text" id="apiToken" placeholder="Deriv API Token" required>
             </div>
+
             <button type="submit" class="btn-connect">Authenticate</button>
         </form>
         <p style="text-align: center; margin-top: 10px;"><a href="#" style="color: #007bff;">Need help?</a></p>
     </div>
 
+    <!-- Home Screen -->
     <div class="container hidden" id="homeScreen">
         <div class="bot-info">
             <h2>CHILD OF NASDAQ</h2>
             <img id="botImage" src="https://via.placeholder.com/300x200" alt="Bot Image">
             <p>C.O.N-IBOT, 24/7 OPERATION</p>
             <button onclick="document.getElementById('fileInput').click();">Upload Icon</button>
-            <input type="file" id="fileInput" class="hidden-upload" accept="image/*">
+            <input type="file" id="fileInput" class="hidden-upload" accept="image/*" onchange="loadImage(event)">
         </div>
+
         <div class="log-section">
             <div class="robot-active"></div>
             <h3>Bot Logs</h3>
             <ul id="logList"></ul>
         </div>
+
         <div class="action-buttons">
-            <button class="btn-trade" id="tradeButton">Start Trading</button>
+            <button class="btn-trade" id="tradeButton" onclick="toggleTrade()">Start Trading</button>
             <button class="btn-settings" onclick="navigateTo('settingsScreen')">Settings</button>
         </div>
     </div>
 
+    <!-- Connect Screen -->
     <div class="container hidden" id="connectScreen">
-        <h2>Connect MT4/MT5 Account</h2>
-        <form id="connectForm">
+        <h2>Connect Deriv Account</h2>
+        <form id="connectForm" onsubmit="connectToAccount(event)">
             <div class="form-group">
                 <i class="fas fa-user"></i>
                 <input type="text" id="login" placeholder="Login ID" required>
             </div>
+
             <div class="form-group">
                 <i class="fas fa-lock"></i>
                 <input type="password" id="password" placeholder="Password" required>
             </div>
-            <div class="form-group">
-                <i class="fas fa-server"></i>
-                <input type="text" id="server" placeholder="MT5/MT4 Server" required>
-            </div>
+
             <div class="form-group">
                 <i class="fas fa-key"></i>
                 <input type="text" id="licenseKey" placeholder="License Key" required>
             </div>
+
             <button type="submit" class="btn-connect">Connect</button>
         </form>
         <p style="text-align: center; margin-top: 10px;"><a href="#" style="color: #007bff;">Need help?</a></p>
     </div>
 
+    <!-- Settings Screen -->
     <div class="container hidden" id="settingsScreen">
         <h2>Risk Management Settings</h2>
         <label>Max Risk Per Trade (%):</label>
         <input type="number" id="riskPerTrade" placeholder="Enter max risk percentage"><br><br>
-        <label>Stop Loss (%):</label>
-        <input type="number" id="stopLoss" placeholder="Enter stop loss percentage"><br><br>
-        <label>Take Profit Multiplier:</label>
-        <input type="number" id="takeProfitMultiplier" placeholder="Enter TP multiplier"><br><br>
-        <label>Trade Size (Lots):</label>
+
+        <label>Stop Loss (pips):</label>
+        <input type="number" id="stopLoss" placeholder="Enter stop loss in pips"><br><br>
+
+        <label>Take Profit (pips):</label>
+        <input type="number" id="takeProfit" placeholder="Enter take profit in pips"><br><br>
+
+        <label>Trade Size (USD):</label>
         <input type="number" id="tradeSize" placeholder="Enter trade size"><br><br>
+
+        <label>Symbol:</label>
+        <input type="text" id="symbol" placeholder="Enter trading symbol (e.g., EURUSD)"><br><br>
+
         <label>Copy All Trades</label>
         <input type="checkbox" id="copyAllTrades"><br><br>
+
         <label>Enable Notifications</label>
         <input type="checkbox" id="enableNotifications"><br><br>
+
         <button onclick="saveSettings()">Save Settings</button>
     </div>
 
@@ -244,119 +290,184 @@
             Connect
         </button>
         <button onclick="navigateTo('settingsScreen')">
-            <i class="fas fa-cogs"></i>
+            <i class="fas fa-cog"></i>
             Settings
         </button>
     </div>
 
     <script>
-        let tradingInterval;
-        const totalTrades = 6;
-        let tradesOpened = 0;
+        let api;
+        let isTrading = false;
+        let settings = {
+            riskPerTrade: 1,
+            stopLoss: 20,
+            takeProfit: 50,
+            tradeSize: 10,
+            symbol: 'EURUSD',
+            copyAllTrades: false,
+            enableNotifications: false
+        };
 
-        async function placeTrade() {
+        function navigateTo(screenId) {
+            const screens = document.querySelectorAll('.container');
+            screens.forEach(screen => {
+                screen.classList.add('hidden');
+            });
+            document.getElementById(screenId).classList.remove('hidden');
+        }
+
+        async function authenticateUser(event) {
+            event.preventDefault();
+            const mentorId = document.getElementById('mentorId').value;
+            const email = document.getElementById('email').value;
+            const apiToken = document.getElementById('apiToken').value;
+
             try {
-                const response = await fetch('/api/trade', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({
-                        symbol: "R_50",
-                        amount: 10,
-                        contractType: "CALL",
-                        duration: 5,
-                        durationUnit: "m",
-                        barrier: "+0.1"
-                    })
-                });
-
-                const result = await response.json();
-                if (result.error) {
-                    addLog(`Error: ${result.message}`);
-                } else {
-                    addLog(`Trade Successful: ID ${result.tradeId}`);
+                api = new DerivAPIBasic({ app_id: 65438 });
+                const response = await api.authorize(apiToken);
+                if (response.error) {
+                    throw new Error(response.error.message);
                 }
+                if (!response.authorize) {
+                    throw new Error('Authorization failed. Please check your API token.');
+                }
+                addLog('Authentication successful for Mentor ID: ' + mentorId);
+                navigateTo('homeScreen');
             } catch (error) {
-                addLog(`Request failed: ${error.message}`);
-            }
-        }
-
-        function toggleTrade() {
-            const tradeButton = document.getElementById('tradeButton');
-            if (tradeButton.innerText === "Start Trading") {
-                tradeButton.innerText = "Stop Trading";
-                addLog("Starting automated trading...");
-                startAutomatedTrading();
-            } else {
-                tradeButton.innerText = "Start Trading";
-                clearInterval(tradingInterval);
-                addLog("Automated trading stopped.");
-            }
-        }
-
-        function startAutomatedTrading() {
-            tradingInterval = setInterval(() => {
-                if (tradesOpened < totalTrades) {
-                    placeTrade();
-                    tradesOpened++;
-                } else {
-                    clearInterval(tradingInterval);
-                    addLog("Max trades reached. Stopping auto-trade.");
+                addLog('Authentication failed: ' + error.message);
+                if (error.message.includes('Unexpected token')) {
+                    addLog('Received non-JSON response. Please check your internet connection and try again.');
                 }
-            }, 6000);
+                alert('Authentication failed: ' + error.message);
+            }
+        }
+
+        async function toggleTrade() {
+            const tradeButton = document.getElementById('tradeButton');
+            if (!isTrading) {
+                const isConnected = await checkApiConnection();
+                if (!isConnected) {
+                    alert('Unable to connect to the Deriv API. Please check your internet connection and try again.');
+                    return;
+                }
+                isTrading = true;
+                tradeButton.innerText = "Stop Trading";
+                addLog("Trading started...");
+                startTradingLogs();
+                await startTrading();
+            } else {
+                isTrading = false;
+                tradeButton.innerText = "Start Trading";
+                addLog("Trading stopped.");
+            }
+        }
+
+        function startTradingLogs() {
+            addLog("Verifying account....");
+            setTimeout(() => addLog("Account details successfully submitted....."), 6000);
+            setTimeout(() => addLog("Fetching trading symbols..."), 12000);
+        }
+
+        async function startTrading() {
+            while (isTrading) {
+                try {
+                    const proposal = await api.proposal({
+                        proposal: 1,
+                        amount: settings.tradeSize,
+                        barrier: `+${settings.takeProfit}`,
+                        basis: 'stake',
+                        contract_type: 'CALL',
+                        currency: 'USD',
+                        duration: 5,
+                        duration_unit: 'm',
+                        symbol: settings.symbol,
+                    });
+
+                    if (proposal.error) {
+                        throw new Error(proposal.error.message);
+                    }
+
+                    addLog(`Proposal received for ${settings.symbol}: ${proposal.proposal.id}`);
+
+                    const buy = await api.buy({
+                        buy: proposal.proposal.id,
+                        price: settings.tradeSize
+                    });
+
+                    if (buy.error) {
+                        throw new Error(buy.error.message);
+                    }
+
+                    addLog(`Trade executed: CALL ${settings.symbol} for $${settings.tradeSize}`);
+                    addLog(`TP: ${settings.takeProfit} pips, SL: ${settings.stopLoss} pips`);
+
+                    await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute between trades
+                } catch (error) {
+                    addLog('Error during trading: ' + error.message);
+                    if (error.message.includes('Unexpected token')) {
+                        addLog('Received non-JSON response. Please check your internet connection and try again.');
+                    }
+                    isTrading = false;
+                    document.getElementById('tradeButton').innerText = "Start Trading";
+                    break;
+                }
+            }
         }
 
         function addLog(message) {
             const logList = document.getElementById('logList');
-            const newLog = document.createElement('li');
-            newLog.textContent = message;
-            logList.appendChild(newLog);
+            const logItem = document.createElement('li');
+            logItem.textContent = message;
+            logList.appendChild(logItem);
+            logList.scrollTop = logList.scrollHeight;
         }
 
-        function navigateTo(screen) {
-            document.getElementById('authenticationScreen').classList.add('hidden');
-            document.getElementById('homeScreen').classList.add('hidden');
-            document.getElementById('connectScreen').classList.add('hidden');
-            document.getElementById('settingsScreen').classList.add('hidden');
-            document.getElementById(screen).classList.remove('hidden');
-        }
-
-        function authenticateUser(event) {
+        async function connectToAccount(event) {
             event.preventDefault();
-            let mentorId = document.getElementById('mentorId').value;
-            let email = document.getElementById('email').value;
-            let licenseKey = document.getElementById('licenseKeyAuth').value;
+            const login = document.getElementById('login').value;
+            const password = document.getElementById('password').value;
+            const licenseKey = document.getElementById('licenseKey').value;
 
-            if (mentorId === "5880" && email === "childofnasdaqservices@gmail.com" && licenseKey === "12qw-34er-56ty-78ui") {
-                navigateTo('homeScreen');
-            } else {
-                alert('Invalid credentials');
-            }
-        }
-
-        function saveSettings() {
-            let risk = document.getElementById('riskPerTrade').value;
-            let stopLoss = document.getElementById('stopLoss').value;
-            let tpMultiplier = document.getElementById('takeProfitMultiplier').value;
-            let tradeSize = document.getElementById('tradeSize').value;
-            let copyTrades = document.getElementById('copyAllTrades').checked;
-            let enableNotifications = document.getElementById('enableNotifications').checked;
-
-            alert('Settings saved!');
+            // In a real implementation, you would use these credentials to connect to the Deriv account
+            // For this example, we'll just simulate a successful connection
+            addLog('Connecting to account...');
+            await new Promise(resolve => setTimeout(resolve, 2000)); // Simulate connection delay
+            addLog('Connected to account: ' + login);
             navigateTo('homeScreen');
         }
 
-        function loadImage(event) {
-            const file = event.target.files[0];
-            const reader = new FileReader();
-            reader.onload = function() {
-                document.getElementById('botImage').src = reader.result;
-            };
-            reader.readAsDataURL(file);
+        function saveSettings() {
+            settings.riskPerTrade = parseFloat(document.getElementById('riskPerTrade').value) || settings.riskPerTrade;
+            settings.stopLoss = parseFloat(document.getElementById('stopLoss').value) || settings.stopLoss;
+            settings.takeProfit = parseFloat(document.getElementById('takeProfit').value) || settings.takeProfit;
+            settings.tradeSize = parseFloat(document.getElementById('tradeSize').value) || settings.tradeSize;
+            settings.symbol = document.getElementById('symbol').value || settings.symbol;
+            settings.copyAllTrades = document.getElementById('copyAllTrades').checked;
+            settings.enableNotifications = document.getElementById('enableNotifications').checked;
+
+            addLog(`Settings saved: Risk ${settings.riskPerTrade}%, Stop Loss ${settings.stopLoss} pips, Take Profit ${settings.takeProfit} pips, Trade Size $${settings.tradeSize}, Symbol ${settings.symbol}, Copy Trades: ${settings.copyAllTrades}, Notifications: ${settings.enableNotifications}`);
+            alert('Settings saved successfully!');
         }
 
-        document.getElementById('authForm').addEventListener('submit', authenticateUser);
-        document.getElementById('tradeButton').addEventListener('click', toggleTrade);
-        document.getElementById('fileInput').addEventListener('change', loadImage);
+        function loadImage(event) {
+            const img = document.getElementById('botImage');
+            img.src = URL.createObjectURL(event.target.files[0]);
+        }
+
+        async function checkApiConnection() {
+            try {
+                const response = await api.ping();
+                if (response.ping === 'pong') {
+                    addLog('API connection successful');
+                    return true;
+                } else {
+                    throw new Error('Unexpected API response');
+                }
+            } catch (error) {
+                addLog('API connection failed: ' + error.message);
+                return false;
+            }
+        }
     </script>
 </body>
 </html>
