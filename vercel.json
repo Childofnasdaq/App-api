@@ -9,6 +9,6 @@
     { "src": "^/(.*)", "dest": "/$1" }
   ],
   "env": {
-    "DERIV_API_TOKEN": "@deriv_api_token"
+    "DERIV_API_TOKEN": "hzVBIA2fG0YNtBf"
   }
 }
