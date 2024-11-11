@@ -1,0 +1,314 @@
+import React, { useState, useEffect, useCallback } from 'react';
+import { DerivAPIBasic } from '@deriv/deriv-api/dist/DerivAPIBasic';
+
+export default function App() {
+  const [api, setApi] = useState(null);
+  const [isTrading, setIsTrading] = useState(false);
+  const [logs, setLogs] = useState([]);
+  const [currentScreen, setCurrentScreen] = useState('authentication');
+  const [settings, setSettings] = useState({
+    riskPerTrade: 1,
+    stopLoss: 20,
+    takeProfit: 50,
+    tradeSize: 10,
+    symbol: 'EURUSD',
+    copyAllTrades: false,
+    enableNotifications: false,
+  });
+
+  const addLog = useCallback((message) => {
+    setLogs((prevLogs) => [...prevLogs, `[${new Date().toISOString()}] ${message}`]);
+  }, []);
+
+  const initializeApi = useCallback(async (apiToken) => {
+    try {
+      addLog("Initializing Deriv API...");
+      const newApi = new DerivAPIBasic({ app_id: 65438 });
+      addLog("Attempting to authorize...");
+      const response = await newApi.authorize(apiToken);
+      if (response.error) {
+        throw new Error(response.error.message);
+      }
+      if (!response.authorize) {
+        throw new Error('Authorization failed. Please check your API token.');
+      }
+      setApi(newApi);
+      addLog('Authentication successful');
+      return true;
+    } catch (error) {
+      addLog(`Authentication failed: ${error.message}`);
+      console.error('Authentication error:', error);
+      return false;
+    }
+  }, [addLog]);
+
+  const checkApiConnection = useCallback(async () => {
+    if (!api) {
+      addLog("API not initialized");
+      return false;
+    }
+    try {
+      addLog("Checking API connection...");
+      const response = await api.ping();
+      if (response && response.ping === 'pong') {
+        addLog("API connection successful");
+        return true;
+      } else {
+        throw new Error("Unexpected API response");
+      }
+    } catch (error) {
+      addLog(`API connection failed: ${error.message}`);
+      console.error("API connection error:", error);
+      return false;
+    }
+  }, [api, addLog]);
+
+  const reconnectWebSocket = useCallback(async () => {
+    addLog("Attempting to reconnect WebSocket...");
+    try {
+      await api.disconnect();
+      await new Promise(resolve => setTimeout(resolve, 1000));
+      await api.connect();
+      addLog("WebSocket reconnected successfully");
+      return true;
+    } catch (error) {
+      addLog(`Failed to reconnect WebSocket: ${error.message}`);
+      console.error("WebSocket reconnection error:", error);
+      return false;
+    }
+  }, [api, addLog]);
+
+  const startTrading = useCallback(async () => {
+    while (isTrading) {
+      try {
+        if (!await checkApiConnection()) {
+          throw new Error("WebSocket connection is not open. Retrying...");
+        }
+
+        addLog("Preparing to create proposal...");
+        const proposal = await api.proposal({
+          proposal: 1,
+          amount: settings.tradeSize,
+          barrier: `+${settings.takeProfit}`,
+          basis: 'stake',
+          contract_type: 'CALL',
+          currency: 'USD',
+          duration: 5,
+          duration_unit: 'm',
+          symbol: settings.symbol,
+        });
+
+        if (!proposal || proposal.error) {
+          throw new Error(proposal ? proposal.error.message : "Failed to create proposal");
+        }
+
+        addLog(`Proposal received for ${settings.symbol}: ${proposal.proposal.id}`);
+
+        addLog("Preparing to buy contract...");
+        const buy = await api.buy({
+          buy: proposal.proposal.id,
+          price: settings.tradeSize
+        });
+
+        if (!buy || buy.error) {
+          throw new Error(buy ? buy.error.message : "Failed to buy contract");
+        }
+
+        addLog(`Trade executed: CALL ${settings.symbol} for $${settings.tradeSize}`);
+        addLog(`TP: ${settings.takeProfit} pips, SL: ${settings.stopLoss} pips`);
+
+        await new Promise(resolve => setTimeout(resolve, 60000)); // Wait 1 minute between trades
+      } catch (error) {
+        addLog(`Error during trading: ${error.message}`);
+        console.error('Detailed trading error:', error);
+        
+        if (error.message.includes("WebSocket connection")) {
+          addLog("Attempting to reconnect...");
+          await reconnectWebSocket();
+        } else {
+          setIsTrading(false);
+          break;
+        }
+      }
+    }
+  }, [api, isTrading, settings, checkApiConnection, reconnectWebSocket, addLog]);
+
+  useEffect(() => {
+    if (isTrading) {
+      startTrading();
+    }
+  }, [isTrading, startTrading]);
+
+  const toggleTrade = async () => {
+    if (!isTrading) {
+      const isConnected = await checkApiConnection();
+      if (!isConnected) {
+        alert("Unable to connect to the Deriv API. Please check your internet connection and try again.");
+        return;
+      }
+      setIsTrading(true);
+      addLog("Trading started...");
+    } else {
+      setIsTrading(false);
+      addLog("Trading stopped.");
+    }
+  };
+
+  const authenticateUser = async (event) => {
+    event.preventDefault();
+    const mentorId = event.target.mentorId.value;
+    const email = event.target.email.value;
+    const apiToken = event.target.apiToken.value;
+
+    const success = await initializeApi(apiToken);
+    if (success) {
+      addLog(`Authentication successful for Mentor ID: ${mentorId}`);
+      setCurrentScreen('home');
+    } else {
+      alert('Authentication failed. Please check your API token and try again.');
+    }
+  };
+
+  const saveSettings = (event) => {
+    event.preventDefault();
+    const newSettings = {
+      riskPerTrade: parseFloat(event.target.riskPerTrade.value) || settings.riskPerTrade,
+      stopLoss: parseFloat(event.target.stopLoss.value) || settings.stopLoss,
+      takeProfit: parseFloat(event.target.takeProfit.value) || settings.takeProfit,
+      tradeSize: parseFloat(event.target.tradeSize.value) || settings.tradeSize,
+      symbol: event.target.symbol.value || settings.symbol,
+      copyAllTrades: event.target.copyAllTrades.checked,
+      enableNotifications: event.target.enableNotifications.checked,
+    };
+    setSettings(newSettings);
+    addLog(`Settings saved: ${JSON.stringify(newSettings)}`);
+    setCurrentScreen('home');
+  };
+
+  const loadImage = (event) => {
+    const file = event.target.files[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = (e) => {
+        document.getElementById('botImage').src = e.target.result;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-gray-900 text-white">
+      <div className="container mx-auto p-4">
+        <h1 className="text-3xl font-bold mb-4 text-center">Child of Nasdaq - Deriv Edition</h1>
+        
+        {currentScreen === 'authentication' && (
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold mb-4">Authentication</h2>
+            <form onSubmit={authenticateUser} className="space-y-4">
+              <div>
+                <label htmlFor="mentorId" className="block mb-1">Mentor ID</label>
+                <input type="text" id="mentorId" name="mentorId" required className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="email" className="block mb-1">Email</label>
+                <input type="email" id="email" name="email" required className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="apiToken" className="block mb-1">Deriv API Token</label>
+                <input type="text" id="apiToken" name="apiToken" required className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <button type="submit" className="w-full p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200">Authenticate</button>
+            </form>
+          </div>
+        )}
+        
+        {currentScreen === 'home' && (
+          <div className="space-y-6">
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg text-center">
+              <h2 className="text-2xl font-bold mb-4">CHILD OF NASDAQ</h2>
+              <img id="botImage" src="/placeholder.svg?height=200&width=300" alt="Bot" className="mx-auto mb-4 rounded-lg" />
+              <p className="mb-4">C.O.N-IBOT, 24/7 OPERATION</p>
+              <input type="file" id="fileInput" accept="image/*" onChange={loadImage} className="hidden" />
+              <button onClick={() => document.getElementById('fileInput').click()} className="px-4 py-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200">
+                Upload Icon
+              </button>
+            </div>
+            
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+              <h2 className="text-xl font-semibold mb-4">Trading Controls</h2>
+              <button 
+                onClick={toggleTrade} 
+                className={`w-full p-2 ${isTrading ? 'bg-red-600 hover:bg-red-700' : 'bg-green-600 hover:bg-green-700'} text-white rounded transition duration-200`}
+              >
+                {isTrading ? 'Stop Trading' : 'Start Trading'}
+              </button>
+            </div>
+            
+            <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+              <h2 className="text-xl font-semibold mb-4">Bot Logs</h2>
+              <div className="h-64 overflow-y-auto bg-gray-700 p-4 rounded">
+                {logs.map((log, index) => (
+                  <div key={index} className="text-sm text-green-400">{log}</div>
+                ))}
+              </div>
+            </div>
+          </div>
+        )}
+        
+        {currentScreen === 'settings' && (
+          <div className="bg-gray-800 p-6 rounded-lg shadow-lg">
+            <h2 className="text-2xl font-semibold mb-4">Risk Management Settings</h2>
+            <form onSubmit={saveSettings} className="space-y-4">
+              <div>
+                <label htmlFor="riskPerTrade" className="block mb-1">Max Risk Per Trade (%)</label>
+                <input type="number" id="riskPerTrade" name="riskPerTrade" defaultValue={settings.riskPerTrade} className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="stopLoss" className="block mb-1">Stop Loss (pips)</label>
+                <input type="number" id="stopLoss" name="stopLoss" defaultValue={settings.stopLoss} className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="takeProfit" className="block mb-1">Take Profit (pips)</label>
+                <input type="number" id="takeProfit" name="takeProfit" defaultValue={settings.takeProfit} className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="tradeSize" className="block mb-1">Trade Size (USD)</label>
+                <input type="number" id="tradeSize" name="tradeSize" defaultValue={settings.tradeSize} className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div>
+                <label htmlFor="symbol" className="block mb-1">Symbol</label>
+                <input type="text" id="symbol" name="symbol" defaultValue={settings.symbol} className="w-full p-2 bg-gray-700 rounded" />
+              </div>
+              <div className="flex items-center">
+                <input type="checkbox" id="copyAllTrades" name="copyAllTrades" defaultChecked={settings.copyAllTrades} className="mr-2" />
+                <label htmlFor="copyAllTrades">Copy All Trades</label>
+              </div>
+              <div className="flex items-center">
+                <input type="checkbox" id="enableNotifications" name="enableNotifications" defaultChecked={settings.enableNotifications} className="mr-2" />
+                <label htmlFor="enableNotifications">Enable Notifications</label>
+              </div>
+              <button type="submit" className="w-full p-2 bg-blue-600 text-white rounded hover:bg-blue-700 transition duration-200">Save Settings</button>
+            </form>
+          </div>
+        )}
+      </div>
+      
+      <nav className="fixed bottom-0 left-0 right-0 bg-gray-800 p-4">
+        <div className="container mx-auto flex justify-around">
+          <button onClick={() => setCurrentScreen('home')} className="text-white hover:text-blue-300 transition duration-200">
+            <i className="fas fa-home mr-2"></i>
+            Home
+          </button>
+          <button onClick={() => setCurrentScreen('authentication')} className="text-white hover:text-blue-300 transition duration-200">
+            <i className="fas fa-plug mr-2"></i>
+            Connect
+          </button>
+          <button onClick={() => setCurrentScreen('settings')} className="text-white hover:text-blue-300 transition duration-200">
+            <i className="fas fa-cog mr-2"></i>
+            Settings
+          </button>
+        </div>
+      </nav>
+    </div>
+  );
+}
